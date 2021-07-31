@@ -8,8 +8,8 @@
 
   - name: Teams
     office_365_connector_card:
-      webhook: https://rkaushik2007hotmailcom.webhook.office.com/webhookb2/c5e37de4-3905-4a21-9dc7-62a5f7c79984@c65f9d74-55da-420b-a20a-71e2769bb207/IncomingWebhook/c9f1647dac114e779f62b4a689a9f29c/704737a7-a9e9-448f-84a2-976fe4c9bd75
-      text: "Here is your newly deployed sketch server URL {{ teamsMsgToSend }} "
+      webhook: webhook url
+      text: "Here is your newly deployed tomcat server URL {{ teamsMsgToSend }} "
 
   - name: Dump public IP for VM which will be created
     debug:
