@@ -1,0 +1,126 @@
+- name: Create Azure VM
+  hosts: localhost
+  vars:
+    FinalUrl: :8080/
+    httpString: http://
+    teamsMsg:
+    ipaddressToSend:
+    teamsMsgToSend:
+    resource_group: rg_az_dynamic_automation
+    azure_location: eastus
+    vnet_name: azure_vnet
+    address_prefix: "10.0.0.0/16"
+    subnet_prefix: "10.0.1.0/24"
+    public_ip_name: vm_public_ip
+    nsg_name: az_NSG
+    nic_name: az_NIC
+    vm_name: azautomationvm
+    username: azureuser
+    password: Welcome@123456
+    vm_offer_name: UbuntuServer
+    vm_publisher_name: Canonical
+    vm_sku_name: '18.04-LTS'
+    size_of_vm: Standard_DS1_v2
+  connection: local
+  tasks:
+  - name: Create resource group
+    azure_rm_resourcegroup:
+      name: "{{resource_group}}"
+      location: "{{azure_location}}"
+  - name: Create virtual network
+    azure_rm_virtualnetwork:
+      resource_group: "{{resource_group}}"
+      name: "{{vnet_name}}"
+      address_prefixes: "{{address_prefix}}"
+  - name: Add subnet
+    azure_rm_subnet:
+      resource_group: "{{resource_group}}"
+      name: default
+      address_prefix: "{{subnet_prefix}}"
+      virtual_network: "{{vnet_name}}"
+  - name: Create public IP address
+    azure_rm_publicipaddress:
+      resource_group: "{{resource_group}}"
+      allocation_method: Static
+      name: "{{public_ip_name}}"
+    register: output_ip_address
+  - name: Dump public IP for VM which will be created
+    debug:
+      msg: "The public IP is {{ output_ip_address.state.ip_address }}."
+  - name: Create Network Security Group that allows SSH
+    azure_rm_securitygroup:
+      resource_group: "{{resource_group}}"
+      name: "{{nsg_name}}"
+      rules:
+        - name: SSH
+          protocol: Tcp
+          destination_port_range: 22
+          access: Allow
+          priority: 1001
+          direction: Inbound
+        - name: allow-tomcat
+          protocol: Tcp
+          destination_port_range: 8080
+          access: Allow
+          priority: 1002
+          direction: Inbound
+        - name: allow-MongoDB
+          protocol: Tcp
+          destination_port_range: 27017
+          access: Allow
+          priority: 1003
+          direction: Inbound
+  - name: Create virtual network interface card
+    azure_rm_networkinterface:
+      resource_group: "{{resource_group}}"
+      name: "{{nic_name}}"
+      virtual_network: "{{vnet_name}}"
+      subnet: default
+      public_ip_name: "{{public_ip_name}}"
+      security_group: "{{nsg_name}}"
+  - name: Create VM
+    azure_rm_virtualmachine:
+      resource_group: "{{resource_group}}"
+      name: "{{vm_name}}"
+      vm_size: "{{size_of_vm}}"
+      admin_username: "{{username}}"
+      admin_password: "{{password}}"
+      network_interfaces: "{{nic_name}}"
+      image:
+        offer: "{{vm_offer_name}}"
+        publisher: "{{vm_publisher_name}}"
+        sku: "{{vm_sku_name}}"
+        version: latest
+
+  - name: add host
+    add_host:
+      name: vmServer
+      ansible_ssh_host: "{{output_ip_address.state.ip_address}}"
+      groups: vm
+      ansible_connection: ssh
+      ansible_ssh_pass: Welcome@123456
+
+  - name: set teamsMsg
+    set_fact:
+      teamsMsg: "{{httpString + output_ip_address.state.ip_address + FinalUrl}}"
+
+  - name: set ipaddressToSend
+    set_fact:
+      ipaddressToSend: "{{output_ip_address.state.ip_address}}"
+
+  - name: Creating a vmtargetIPAddress.txt
+    copy:
+      dest: "/home/azureuser/vmtargetIPAddress.txt"
+      content: |
+        "{{ipaddressToSend}}"
+
+- name: Import install_softwares.yml playbook
+  import_playbook: install_softwares.yml
+
+- name: Include WebHook playbook
+  import_playbook: teams_webhooks.yml
+  vars:
+     teamsMsgToSend: "{{teamsMsg}}"
+
+- name: Import Delete IP address
+  import_playbook: deleteIPaddress.yml

@@ -1,0 +1,21 @@
+---
+- name: Delete IP address file
+  hosts: localhost
+  tasks:
+
+  - name: set address variable
+    set_fact:
+      address: "{{lookup('file', '/home/azureuser/vmtargetIPAddress.txt') }}"
+
+  - name: update address variable
+    set_fact:
+      address: "{{address | replace('\"','') }}"
+
+  - name: Display the Application URL
+    debug:
+     msg: " The sketch url is : http://{{address }}:8080"
+
+  - name:  delete IPAddress file
+    file:
+      path: /home/azureuser/vmtargetIPAddress.txt
+      state: absent
